@@ -1,0 +1,111 @@
+#!/usr/bin/env python
+
+"""
+Shell application to launch a semi automated reduction of
+GMOS longslit data using the Gemini IRAF package.
+"""
+
+import argparse
+import sys
+
+from reduxGemini.gmos import fgmosLS
+
+SHORT_DESCRIPTION = 'Reduce GMOS longslit data with Gemini IRAF package.'
+
+def parse_args(command_line_args):
+    """
+    Parse command line arguments for fgmosLS.
+    """
+    parser = argparse.ArgumentParser(prog='fgmosLS', 
+                                     description=SHORT_DESCRIPTION)
+    # Required arguments
+    parser.add_argument('scifiles', action='store', nargs='+',
+                        type=str, default=None,
+                        help='Name of the raw science files.')
+    parser.add_argument('--bias', dest='biasfile', action='store',
+                        required=False, nargs=1,
+                        type=str, default=None,
+                        help='Name of the PROCESSED bias file. Full or \
+                        relative path to the file required')
+    parser.add_argument('--flat', dest='flatfile', action='store',
+                        required=False, nargs=1,
+                        type=str, default=None,
+                        help='Name of the raw flat file.')
+    parser.add_argument('--arc', dest='arcfile', action='store',
+                        required=False, nargs=1,
+                        type=str, default=None,
+                        help='Name of the raw arc file.')
+    
+    # Optional arguments
+    parser.add_argument('--inter', dest='interproc', action='store',
+                        choices=fgmosLS.ALLOWED_INTERPROC, nargs='*',
+                        type=str, default=None,
+                        help='Turn on interactive mode on selected steps.')
+    parser.add_argument('--linelist', dest='linelist', action='store',
+                        type=str, default=None, 
+                        help='User specified line list for matching the \
+                        arc lines')
+    parser.add_argument('--logfile', dest='logfile', action='store',
+                        type=str, default='fgmosLS.log',
+                        help='Name of the logfile [\'fgmosLS.log\']')
+    parser.add_argument('--nsrc', dest='nsrc', action='store',
+                        type=int, default=1,
+                        help='Number of sources to extract.')
+    parser.add_argument('--rawdir', dest='rawdir', action='store',
+                        type=str, default='./',
+                        help='Location of the raw files, if different from \
+                        current directory')
+    parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
+                        default=False,
+                        help='Toggle verbose mode on')
+    parser.add_argument('--debug', dest='debug', action='store_true',
+                        default=False,
+                        help='Toggle debug mode on')
+    
+    args = parser.parse_args(command_line_args)
+    
+    if args.debug:
+        print args
+
+    # Check that everything is found before proceeding further.
+    if not fgmosLS.check_inputs(args.scifiles, args.biasfile[0],
+                                args.flatfile[0], args.arcfile[0],
+                                args.rawdir, args.linelist):
+        raise OSError('File not Found')      
+    
+    # Set the interactive flags
+    inter_flags = fgmosLS.inter_flags
+    if args.interproc is not None:
+        for interproc in args.interproc:
+            inter_flags[interproc] = True
+            
+    # If more than one sources is to be extracted, it must be
+    # done interactively.  Toggle on the required interactive modes.
+    if args.nsrc > 1:
+        message = str(args.nsrc) + ' sources to be extracted.\n'
+        message += 'Interactive sky subtraction toggled on.\n'
+        message += 'Interactive extraction toggled on\.n'
+        inter_flags['extract'] = True
+        inter_flags['skysub'] = True
+        if args.verbose:
+            print message
+         
+    return args, inter_flags
+
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
+    
+    args, inter_flags = parse_args(argv)
+    
+    input_fnames = {'scifiles': args.scifiles,
+                    'biasfile': args.biasfile[0],
+                    'flatfile': args.flatfile[0],
+                    'arcfile': args.arcfile[0]}
+    
+    fgmosLS.fgmosLS(input_fnames, args.rawdir, inter_flags,
+                    args.nsrc, args.linelist, args.logfile,
+                    args.verbose)
+
+if __name__ == '__main__':
+    sys.exit(main())
