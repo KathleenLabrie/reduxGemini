@@ -1,4 +1,7 @@
 /build/
+/dist/
 **/*.pyc
 .project
 .pydevproject
+/reduxGemini.egg-info/
+/_build/
