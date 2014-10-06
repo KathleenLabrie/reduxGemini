@@ -19,20 +19,11 @@ def parse_args(command_line_args):
     
     return args
 
-def build_docs():
-    pass
-
 def move_docs(destination):
     
 
     dirname = resource_filename(Requirement.parse('reduxGemini'),
-                            os.path.join('share', 'reduxGemini'))
-    #if not os.path.isdir(dirname):
-    #    dirname = resources_filename(Requirement.parse('reduxGemini'), 'doc')
-    #    sub_destination = os.path.join(destination, 'reduxGemini', 'doc')
-    #else:
-    #    sub_destination = os.path.join(destination, 'reduxGemini')
-    
+                            os.path.join('share', 'reduxGemini'))    
     sub_destination = os.path.join(destination, 'reduxGemini')
 
     if os.path.isdir(os.path.join(sub_destination)):

@@ -4,4 +4,4 @@
 .project
 .pydevproject
 /reduxGemini.egg-info/
-/_build/
+/doc/reduxGemini_Manual/_build/

@@ -14,9 +14,6 @@ DATA_FILES = []
 DOC_FILES = [(os.path.join('share',MODULENAME,root), [os.path.join(root,f) for f in files]) \
               for root, dirs, files in os.walk('doc')]
 DATA_FILES.extend(DOC_FILES)
-print '***********************'
-print 'data_files = ', DOC_FILES
-print '***********************'
 
 
 setup(
@@ -62,5 +59,5 @@ setup(
       scripts = [
                  'reduxGemini/gmos/scripts/fgmosLS'
                  ],
-
+      zip_safe = False,
       )
