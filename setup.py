@@ -2,6 +2,9 @@ from setuptools import setup, find_packages
 from codecs import open
 import os
 
+import reduxGemini
+VERSION = reduxGemini.__version__
+
 cwd = os.path.abspath(os.path.dirname(__file__))
 
 # Get the long_description from the Description.rst file
@@ -12,13 +15,12 @@ MODULENAME = 'reduxGemini'
 
 DATA_FILES = []
 DOC_FILES = [(os.path.join('share',MODULENAME,root), [os.path.join(root,f) for f in files]) \
-              for root, dirs, files in os.walk('doc')]
+              for root, dirs, files in os.walk('docs')]
 DATA_FILES.extend(DOC_FILES)
-
 
 setup(
       name = 'reduxGemini',
-      version = '0.1.0dev1',
+      version = VERSION,
       
       description = 'Tools and documentation to reduce Gemini data',
       long_description = long_description,
@@ -43,7 +45,7 @@ setup(
       
       keywords = 'Gemini data reduction',
       
-      packages = find_packages(exclude=['doc']),
+      packages = find_packages(exclude=['docs']),
       
       #install_requires = ['']
       #extras_require = {
