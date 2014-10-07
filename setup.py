@@ -30,13 +30,13 @@ setup(
       author = 'Kathleen Labrie',
       author_email = 'kathleen.labrie.phd@gmail.com',
       
-      #licence = '',
+      license = 'LICENSE',
       
       # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
       classifiers = [
                     'Development Status :: 2 - Pre-Alpha',
                     'Intended Audience :: Science/Research',
-                    'License ::',
+                    'License :: OSI Approved :: ISC License (ISCL)',
                     'Operating System :: Mac OS :: MacOS X',
                     'Operating System :: POSIX :: Linux',
                     'Programming Language :: Python :: 2.7',
