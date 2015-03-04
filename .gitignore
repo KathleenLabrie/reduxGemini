@@ -58,3 +58,5 @@ target/
 .pydevproject
 .settings
 
+# iPython notebooks
+.ipynb_checkpoints
