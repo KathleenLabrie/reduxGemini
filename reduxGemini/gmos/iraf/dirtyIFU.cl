@@ -3,11 +3,20 @@ procedure dirtyIFU (inimages)
 # Quick and dirty reduction of IFU data
 #   Purpose: verify seeing, verify centering, verify signal
 #            i.e. morning after sanity checks
+#
+# Author: Kathleen Labrie (2019)
+#
+# task dirtyIFU=<path>/dirtyIFU.cl
+# cl < dispscript.cl
+
+
 
 char    inimages    {prompt="List of raw input science frame"}
 char    gcalflats   {"", prompt="List of raw GCALflats"}
-char    rawpath     {"/net/archie/staging/perm/", prompt="Location of raw data"}
+char    gcalarc     {"", prompt="raw arc"}
+char    rawpath     {"adata$", prompt="Location of raw data"}
 char    flat        {"", prompt="Already reduced flat"}
+char    arc         {"", prompt="Already reduced arg"}
 char    dispscript  {"dispscript.cl", prompt="Script to display reduced output"}
 char    slits       {"both", prompt="Slit(s) used"}
 char    logfile     {"dirtyIFU.log", prompt="Name of logfile"}
@@ -18,18 +27,21 @@ struct  *scanfile   {"", prompt="Internal use only"}
 begin
     char    l_inimages = ""
     char    l_gcalflats = ""
+    char    l_gcalarc = ""
     char    l_rawpath = ""
     char    l_flat = ""
+    char    l_arc = ""
     char    l_dispscript = ""
     char    l_slits = ""
     char    l_logfile = ""
     bool    l_verbose
     
     char    paramstr, lastchar, errmsg
-    char    filename, flatused
-    char    tmpinimg, tmpinflat
+    char    filename, flatused, arcused
+    char    tmpinimg, tmpinflat, tmpinarc
+    char    finalprefix, finalfilename
     int     junk
-    bool    reduxflat, doscript
+    bool    reduxflat, doscript, reduxarc, dotransform
     
     cache ("gloginit")
     
@@ -37,8 +49,10 @@ begin
     
     junk = fscan (inimages, l_inimages)
     junk = fscan (gcalflats, l_gcalflats)
+    junk = fscan (gcalarc, l_gcalarc)
     junk = fscan (rawpath, l_rawpath)
     junk = fscan (flat, l_flat)
+    junk = fscan (arc, l_arc)
     junk = fscan (dispscript, l_dispscript)
     junk = fscan (slits, l_slits)
     junk = fscan (logfile, l_logfile)
@@ -47,13 +61,16 @@ begin
     # Make temporary file names
     tmpinimg = mktemp ("tmpinimg")
     tmpinflat = mktemp ("tmpinflat")
+    tmpinarc = mktemp ("tmpinarc")
         
     # Create the list of parameter/value pairs.  One pair per line.
     # All lines combined into one string.  Line delimiter is '\n'.
     paramstr =  "inimages       = "//inimages.p_value//"\n"
     paramstr += "gcalflats      = "//gcalflats.p_value//"\n"
+    paramstr += "gcalarc        = "//gcalarc.p_value//"\n"
     paramstr += "rawpath        = "//rawpath.p_value//"\n"
     paramstr += "flat           = "//flat.p_value//"\n"
+    paramstr += "arc            = "//arc.p_value//"\n"
     paramstr += "dispscript     = "//dispscript.p_value//"\n"
     paramstr += "slits          = "//slits.p_value//"\n"
     paramstr += "logfile        = "//logfile.p_value//"\n"
@@ -124,7 +141,7 @@ begin
             errmsg = gemextn.fail_count//" input GCAL flats were not found."
             status = 101
         } else if (gemextn.count == 0) {
-            errmsg = "No input science frames defined!"
+            errmsg = "No input flat frames defined!"
             status = 121
 
         }
@@ -139,10 +156,39 @@ begin
                 outfile=tmpinflat, logfile=l_logfile, verbose=l_verbose)
         }
     }
+
+    if (l_gcalarc == "") {
+        reduxarc = no
+    } else {
+        reduxarc = yes
+        
+        gemextn (l_gcalarc, check="exist,mef", process="none", index="",
+            extname="", extversion="", ikparams="", omit="kernel,exten",
+            replace="^%%"//l_rawpath//"%", outfile="dev$null",
+            logfile=l_logfile, verbose=l_verbose)
+        
+        if (gemextn.fail_count > 0) {
+            errmsg = gemextn.fail_count//" input GCAL arcs were not found."
+            status = 101
+        } else if (gemextn.count == 0) {
+            errmsg = "No input gcal arc defined!"
+            status 121
+        }
+        
+        if (status != 0) {
+            glogprint (l_logfile, "dirtyIFU", "status", type="error",
+                errno=status, str=errmsg, verbose+)
+            goto clean
+        } else {
+            gemextn (l_gcalarc, check="", process="none", index="",
+                extname="", extversion="", ikparams="", omit="", replace="",
+                outfile=tmpinarc, logfile=l_logfile, verbose=l_verbose)
+        }
+    }
     
     if (reduxflat) {
         gfreduce (l_gcalflats, outimag="", outpref="default", slits=l_slits,
-            fl_nodsh=no, fl_inter=no, fl_vardq=no, fl_addmdf=yes, fl_over=no,
+            fl_nodsh=no, fl_inter=no, fl_vardq=no, fl_addmdf=yes, fl_over=yes,
             fl_trim=yes, fl_bias=no, fl_gscrrej=no, fl_gnsskysub=no,
             fl_extract=yes, fl_gsappwave=yes, fl_wavtran=no, fl_skysub=no,
             fl_fluxcal=no, rawpath=l_rawpath, key_mdf="", mdffile="default",
@@ -173,15 +219,48 @@ begin
     } else {
         flatused = l_flat
     }
+
+    if (reduxarc) {
+        gfreduce (l_gcalarc, outimag="", outpref="default", slits=l_slits,
+            fl_nodsh=no, fl_inter=no, fl_vardq=no, fl_addmdf=yes, fl_over=yes,
+            fl_trim=yes, fl_bias=no, fl_gscrrej=no, fl_gnsskysub=no,
+            fl_extract=yes, fl_gsappwave=yes, fl_wavtran=no, fl_skysub=no,
+            fl_fluxcal=no, rawpath=l_rawpath, key_mdf="", mdffile="default",
+            mdfdir="gmos$data/", key_biassec="BIASSEC", key_datasec="DATASEC",
+            bpmfile="gmos$data/chipgaps.dat", bias="", reference=flatused,
+            respons="", wavtraname="", sfunction="", extinction="",
+            fl_fixnc=no, fl_novlap=yes, perovlap=10., order=1, line=INDEF,
+            nsum=10, trace=no, recenter=no, thresh=200., 
+            function="chebyshev", t_order=5, t_nsum=10, weights="variance",
+            gratingdb="gmos$data/GMOSgratings.dat",
+            filterdb="gmos$data/GMOSfilters.dat", xoffset=INDEF,
+            expr="default", observatory="default", sci_ext="SCI", var_ext="VAR",
+            dq_ext="DQ", logfile=l_logfile, verbose=l_verbose)
+               
+        gswavelength ("erg"//l_gcalarc, fl_inter=yes, nlost=10, ntarget=15, 
+            threshold=25, coordlis="gmos$data/GCALcuar.dat")
+            
+        dotransform = yes
+        arcused = "erg"//l_gcalarc
+        
+    } else {
+        if (l_arc == "") {
+            dotransform = no
+        } else {
+            dotransform = yes
+        }
+        arcused = l_arc
+    }
     
     gfreduce (l_inimages, outimag="", outpref="default", slits=l_slits,
         fl_nodsh=no, fl_inter=no, fl_vardq=no, fl_addmdf=yes, fl_over=no,
-        fl_trim=yes, fl_bias=no, fl_gscrrej=yes, fl_gnsskysub=no,
-        fl_extract=yes, fl_gsappwave=no, fl_wavtran=no, fl_skysub=yes,
+        fl_trim=yes, fl_bias=no, fl_gscrrej=no, fl_gnsskysub=no,
+        fl_extract=yes, fl_gsappwave=no, 
+        fl_wavtran=dotransform, fl_skysub=dotransform,
         fl_fluxcal=no, rawpath=l_rawpath, key_mdf="", mdffile="default",
         mdfdir="gmos$data/", key_biassec="BIASSEC", key_datasec="DATASEC",
         bpmfile="gmos$data/chipgaps.dat", bias="", reference=flatused, 
-        wavtraname="", sfunction="", extinction="", fl_fixnc=no, fl_novlap=yes,
+        wavtraname=arcused, sfunction="", extinction="", fl_fixnc=no, fl_novlap=yes,
         perovlap=10., order=1, line=INDEF, nsum=10, trace=no, recenter=yes,
         thresh=200., function="chebyshev", t_order=5, t_nsum=10,
         weights="variance", gratingdb="gmos$data/GMOSgratings.dat",
@@ -191,12 +270,19 @@ begin
     
     scanfile = tmpinimg
     while (fscan (scanfile, filename) !=  EOF) {
-        gfcube ("sexrg"//filename, outimage="sexrg"//filename//"_3D", 
+        if (dotransform) {
+            finalprefix = "sterg"
+        } else {
+            finalprefix = "erg"
+        }
+        finalfilename = finalprefix//filename
+        gfcube (finalfilename, outimage=finalfilename//"_3D", 
             outpref="", ssample=0.1)
         if (doscript) {
-            printf ("gfdisplay sexrg%s out=sexrg%s_2D ver=1 \
+            printf ("gfdisplay %s out=%s_2D ver=1 \
                 config=gmos$data/gnifu_slitr.cfg \
-                deadfib=gmos$data/gnifu_deadr.cfg\n\n", filename, filename,
+                deadfib=gmos$data/gnifu_deadr.cfg\n\n", 
+                finalfilename, finalfilename,
                 >> l_dispscript)
         }
     }
